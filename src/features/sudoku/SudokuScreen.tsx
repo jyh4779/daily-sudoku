@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, LayoutChangeEvent } from 'react-native';
 import Board from './view/Board';
 import NumberPad from './view/NumberPad';
+import ActionButtons from './view/ActionButtons';
 import { useSudokuStore } from './viewmodel/sudokuStore';
 
 export default function SudokuScreen() {
@@ -61,21 +62,8 @@ export default function SudokuScreen() {
 
 					{/* 1/16 : 기능키 */}
 					<View style={[styles.tools, { height: unit }]}>
-						<Text style={styles.tool}>↩ 실행 취소</Text>
-						<Text style={styles.tool}>⌫ 지우개</Text>
-						<Text style={styles.tool}>💡 자동 힌트</Text>
-						<Text style={styles.tool}>✎ 노트</Text>
-						<Text style={styles.toolDanger}>? 힌트</Text>
-
-                        <Text
-                            onPress={toggleNoteMode}
-                            style={[styles.tool, noteMode && { color: '#2563eb', fontWeight: '700' }]}
-                        >
-                            ✎ 노트
-                        </Text>
-
-                        <Text style={styles.toolDanger}>? 힌트</Text>
-					</View>
+                        <ActionButtons />
+                    </View>
 
 					{/* 3/16 : 숫자패드 */}
 					<View style={[styles.padArea, { height: unit * 3 }]}>
