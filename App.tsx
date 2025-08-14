@@ -1,28 +1,20 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+// App.tsx
+import React from 'react';
+import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import SudokuScreen from './src/features/sudoku/SudokuScreen';
+import AspectStage9x16 from './src/app/AspectStage9x16';
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <NewAppScreen templateFileName="App.tsx" />
-    </View>
-  );
+export default function App() {
+	return (
+		<SafeAreaView style={styles.container}>
+			<StatusBar barStyle="dark-content" />
+			<AspectStage9x16>
+				<SudokuScreen />
+			</AspectStage9x16>
+		</SafeAreaView>
+	);
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+	container: { flex: 1, backgroundColor: '#ffffff' } // 바깥 여백 화이트 유지
 });
-
-export default App;
