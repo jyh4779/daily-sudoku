@@ -1,5 +1,5 @@
 // src/features/sudoku/SudokuScreen.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, LayoutChangeEvent } from 'react-native';
 import Board from './view/Board';
 import NumberPad from './view/NumberPad';
@@ -11,6 +11,11 @@ export default function SudokuScreen() {
 	const [boardBox, setBoardBox] = useState<{ w: number; h: number } | null>(null);
     const noteMode = useSudokuStore(s => s.noteMode);
     const toggleNoteMode = useSudokuStore(s => s.toggleNoteMode);
+	const loadRandomEasy = useSudokuStore(s => s.loadRandomEasy);
+
+	useEffect(() => {
+		loadRandomEasy().catch(e => console.error(e));
+	}, [loadRandomEasy]);
 
 	const onLayoutRoot = (e: LayoutChangeEvent) => {
 		const h = e.nativeEvent.layout.height;
@@ -53,7 +58,7 @@ export default function SudokuScreen() {
 					<View style={[styles.boardArea, { height: unit * 10 }]} onLayout={onLayoutBoardArea}>
 						<View style={styles.boardCard}>
 							{boardSide > 0 && (
-								<View style={styles.boardInner}>
+								<View style={{ alignItems: 'center' }}>
 									<Board size={boardSide} />
 								</View>
 							)}

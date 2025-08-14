@@ -10,8 +10,10 @@ module.exports = (async () => {
 			babelTransformerPath: require.resolve('react-native-svg-transformer')
 		},
 		resolver: {
-			// png, jpg 등 기존 assetExts는 그대로 유지하면서 svg만 source로 이동
-			assetExts: assetExts.filter(ext => ext !== 'svg'),
+			// 1) 기본 assetExts에서 svg만 빼고
+			// 2) .sudoku 확장자를 asset으로 추가
+			assetExts: assetExts.filter(ext => ext !== 'svg').concat(['sudoku']),
+			// svg를 소스 확장자로 추가(react-native-svg-transformer)
 			sourceExts: [...sourceExts, 'svg']
 		}
 	});
