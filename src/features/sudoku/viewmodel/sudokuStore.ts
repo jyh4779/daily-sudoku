@@ -1,95 +1,50 @@
-// src/features/sudoku/viewmodel/sudokuStore.ts
 import { create } from 'zustand';
-import type { Grid, Pair } from '../data/puzzleLoader';
-import { loadPairsFromAssets, pickRandomPair } from '../data/puzzleLoader';
+import { getRandomPairByDifficulty } from '../data/PuzzleRepositorySqlite';
+import { log, warn } from '../../../core/logger/log';
 
-// 정적 에셋 require (상대경로: viewmodel -> sudoku -> features -> src -> assets/puzzles)
-const EASY_PUZZLES = require('../../../assets/puzzles/Easy.sudoku');
-const EASY_SOLUTIONS = require('../../../assets/puzzles/Easy_output.sudoku');
+const N = 9;
+const empty9 = () => Array.from({ length: N }, () => Array(N).fill(0));
+const to9x9 = (g?: number[][]) =>
+  Array.isArray(g) && g.length === N && g.every(r => Array.isArray(r) && r.length === N) ? g : empty9();
+const clone9 = (g: number[][]) => g.map(r => r.slice());
 
-type Pos = { r: number; c: number } | null;
-type Notes = Array<Array<Set<number>>>;
-
-const makeEmptyNotes = (): Notes =>
-	Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set<number>()));
-
-type State = {
-	selected: Pos;
-	noteMode: boolean;
-	notes: Notes;
-
-	// 퍼즐/정답/현재값
-	puzzle?: Grid;
-	solution?: Grid;
-	values: Grid;
-
-	// actions
-	selectCell: (r: number, c: number) => void;
-	toggleNoteMode: () => void;
-	inputNumber: (n: number) => void;
-	clearNotesAt: (r: number, c: number) => void;
-	clearAllNotes: () => void;
-
-	loadRandomEasy: () => Promise<void>;
-	setPair: (pair: Pair) => void;
+type RC = { r: number; c: number };
+type SudokuState = {
+  values: number[][]; puzzle: number[][]; solution: number[][]; grid: number[][]; selected: RC | null;
+  difficulty: 'easy' | 'medium' | 'hard' | 'expert';
+  setSelected: (rc: RC | null) => void;
+  setValue: (r: number, c: number, v: number) => void;
+  loadRandomEasy: () => Promise<void>;
 };
 
-const empty9 = (): Grid => Array.from({ length: 9 }, () => Array(9).fill(0));
+export const useSudokuStore = create<SudokuState>((set) => ({
+  values: empty9(),
+  puzzle: empty9(),
+  solution: empty9(),
+  grid: empty9(),
+  selected: null,
+  difficulty: 'easy',
 
-export const useSudokuStore = create<State>((set, get) => ({
-	selected: null,
-	noteMode: false,
-	notes: makeEmptyNotes(),
-	values: empty9(),
+  setSelected: (rc) => set({ selected: rc }),
+  setValue: (r, c, v) => set(state => {
+    const next = state.values.map(row => row.slice());
+    next[r][c] = v;
+    return { values: next, grid: next };
+  }),
 
-	selectCell: (r, c) => set({ selected: { r, c } }),
-	toggleNoteMode: () => set(s => ({ noteMode: !s.noteMode })),
-
-	inputNumber: (n) => {
-		const { selected, noteMode, notes, values, puzzle } = get();
-		if (!selected) return;
-		const { r, c } = selected;
-
-		if (noteMode) {
-			// 노트 토글
-			const next = makeEmptyNotes();
-			for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++) next[i][j] = new Set(notes[i][j]);
-			if (next[r][c].has(n)) next[r][c].delete(n);
-			else next[r][c].add(n);
-			set({ notes: next });
-		} else {
-			// 실제 값 입력 (초기 퍼즐 고정값은 수정 금지)
-			if (puzzle && puzzle[r][c] !== 0) return;
-			const next = values.map(row => row.slice());
-			next[r][c] = n;
-			set({ values: next });
-		}
-	},
-
-	clearNotesAt: (r, c) => {
-		const { notes } = get();
-		const next = makeEmptyNotes();
-		for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++)
-			next[i][j] = i === r && j === c ? new Set() : new Set(notes[i][j]);
-		set({ notes: next });
-	},
-
-	clearAllNotes: () => set({ notes: makeEmptyNotes() }),
-
-	setPair: ({ puzzle, solution }) => {
-		set({
-			puzzle,
-			solution,
-			// 시작값은 퍼즐 그대로(0은 빈칸)
-			values: puzzle.map(row => row.slice()),
-			notes: makeEmptyNotes(),
-			noteMode: false     
-		});
-	},
-
-	loadRandomEasy: async () => {
-		const pairs = await loadPairsFromAssets(EASY_PUZZLES, EASY_SOLUTIONS);
-		const picked = pickRandomPair(pairs);
-		get().setPair(picked);
-	}
+  loadRandomEasy: async () => {
+    await log('PUZZLE', 'load start', { diff: 'easy' });
+    try {
+      const pair = await getRandomPairByDifficulty('easy');
+      const puz = to9x9(pair.puzzle);
+      const sol = to9x9(pair.solution);
+      const vals = clone9(puz);
+      set({ puzzle: puz, solution: sol, values: vals, grid: vals, selected: null, difficulty: 'easy' });
+      await log('PUZZLE', 'load success', { id: pair.meta.id, line: pair.meta.line });
+    } catch (e: any) {
+      const z = empty9();
+      set({ puzzle: z, solution: z, values: z, grid: z, selected: null });
+      await warn('PUZZLE', 'load failed', { error: String(e?.message ?? e) });
+    }
+  },
 }));
