@@ -11,11 +11,30 @@ const empty9 = () => Array.from({ length: N }, () => Array(N).fill(0));
 export default function Board({ size }: Props) {
   const values   = useSudokuStore(s => s.values);
   const puzzle   = useSudokuStore(s => s.puzzle);
+  const solution = useSudokuStore(s => s.solution);
   const selected = useSudokuStore(s => s.selected);
   const setSel   = useSudokuStore(s => s.setSelected);
+  const notes    = useSudokuStore(s => s.notes);
+  const noteMode = useSudokuStore(s => s.noteMode ?? false);
+  const padSelectMode = useSudokuStore(s => s.padSelectMode ?? false);
+  const selectedPad = useSudokuStore(s => s.selectedPad ?? null);
+  const toggleNoteAtSelected = useSudokuStore(s => s.toggleNoteAtSelected);
+  const inputNumber = useSudokuStore(s => s.inputNumber);
 
   const vGrid = (values?.length === N && values.every(r => r?.length === N)) ? values : empty9();
   const pGrid = (puzzle?.length === N && puzzle.every(r => r?.length === N)) ? puzzle : empty9();
+  const sGrid = (solution?.length === N && solution.every(r => r?.length === N)) ? solution : empty9();
+  const nGrid = (notes?.length === N && notes.every(r => r?.length === N)) ? notes : empty9();
+
+  // Determine a highlight digit: selected pad in pad-select mode, otherwise selected cell's value
+  const highlightDigit: number | null = React.useMemo(() => {
+    if (padSelectMode && selectedPad) return selectedPad;
+    if (selected) {
+      const vv = vGrid[selected.r]?.[selected.c] || 0;
+      if (vv > 0) return vv;
+    }
+    return null;
+  }, [padSelectMode, selectedPad, selected, vGrid]);
 
   // 선 두께 정의
   const THIN  = StyleSheet.hairlineWidth;       // 얇은 선
@@ -36,6 +55,7 @@ export default function Board({ size }: Props) {
             const v      = vGrid[r][c];
             const fixed  = !!pGrid[r][c];
             const isSel  = !!(selected && selected.r === r && selected.c === c);
+            const isWrong = !fixed && v !== 0 && sGrid[r][c] !== 0 && v !== sGrid[r][c];
 
             // 각 셀은 "왼쪽/위쪽" 선만 그립니다. (마지막 행/열에서만 바깥쪽을 닫음)
             const cellBorder: StyleProp<ViewStyle> = {
@@ -47,21 +67,64 @@ export default function Board({ size }: Props) {
               borderColor: '#223041',
             };
 
+            const noteMask = nGrid[r]?.[c] || 0;
             return (
               <Pressable
                 key={c}
-                onPress={() => setSel({ r, c })}
+                onPress={() => {
+                  // If pad-select mode with a chosen number, apply that number (or note) to empty editable cells
+                  if (padSelectMode && selectedPad && puzzle[r][c] === 0) {
+                    if (v === 0) {
+                      setSel({ r, c });
+                      if (noteMode) {
+                        toggleNoteAtSelected && toggleNoteAtSelected(selectedPad);
+                      } else {
+                        inputNumber && inputNumber(selectedPad);
+                      }
+                      return;
+                    }
+                  }
+                  setSel({ r, c });
+                }}
                 style={[
                   styles.cell,
                   { width: cell, height: cell },
                   cellBorder,
                   fixed && styles.fixedCell,
                   isSel && styles.selectedCell,
+                  isWrong && styles.wrongCell,
+                  highlightDigit != null && (
+                    v === highlightDigit || (v === 0 && (noteMask & (1 << highlightDigit)) !== 0)
+                  ) && styles.highlightCell,
                 ]}
               >
-                <Text style={[styles.text, fixed && styles.fixedText]}>
-                  {v > 0 ? String(v) : ''}
-                </Text>
+                {v > 0 ? (
+                  <Text style={[
+                    styles.text,
+                    fixed && styles.fixedText,
+                    isWrong && styles.wrongText,
+                    highlightDigit != null && v === highlightDigit && styles.textHighlight,
+                  ]}>
+                    {String(v)}
+                  </Text>
+                ) : noteMask ? (
+                  <View style={styles.notesGrid}>
+                    {Array.from({ length: 9 }).map((_, i) => {
+                      const d = i + 1;
+                      const on = !!(noteMask & (1 << d));
+                      return (
+                        <View key={d} style={styles.noteCell}>
+                          {on && (
+                            <Text style={[
+                              styles.noteText,
+                              highlightDigit != null && d === highlightDigit && styles.noteTextHighlight,
+                            ]}>{d}</Text>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : null}
               </Pressable>
             );
           })}
@@ -76,14 +139,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 8,
     overflow: 'hidden',
+    alignSelf: 'center',
   },
   row: { flexDirection: 'row' },
   cell: {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  notesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: '100%',
+    height: '100%',
+    padding: 2,
+  },
+  noteCell: {
+    width: '33.3333%',
+    height: '33.3333%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noteText: { fontSize: 9, color: '#6b7280' },
+  noteTextHighlight: { fontWeight: '800', color: '#111827', fontSize: 10 },
   fixedCell:    { backgroundColor: '#f3f6fb' },
   selectedCell: { backgroundColor: '#eaf1ff' },
+  wrongCell:    { backgroundColor: '#ffe6e6' },
   text:      { color: '#1e2a3b', fontWeight: '500', fontSize: 18 },
   fixedText: { color: '#0f172a', fontWeight: '700' },
+  wrongText: { color: '#d00000', fontWeight: '700' },
+  textHighlight: { fontWeight: '900', fontSize: 20 },
+  highlightCell: { backgroundColor: '#f5f9ff' },
 });

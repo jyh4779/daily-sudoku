@@ -75,3 +75,50 @@ export async function getRandomPairByDifficulty(diff: Difficulty): Promise<Pair>
     meta: { id: row.id, line: row.line_no ?? undefined, difficulty: diff },
   };
 }
+
+// New: randomly pick one row from a simple table (e.g., 'easy')
+// The table is expected to have at least a 'puzzle' column; 'solution' is optional.
+export async function getRandomFromTable(table: Difficulty | 'euler'): Promise<Pair> {
+  const db = await getDb();
+  await log('PUZZLE', 'simple table pick start', { table });
+
+  // Try with id (rowid), puzzle, solution first. If it fails (no solution column), fallback.
+  const tryQueries = [
+    `SELECT rowid AS id, puzzle, solution FROM ${table} ORDER BY RANDOM() LIMIT 1`,
+    `SELECT rowid AS id, puzzle FROM ${table} ORDER BY RANDOM() LIMIT 1`,
+  ];
+
+  let row: any | null = null;
+  let lastErr: any = null;
+  for (const q of tryQueries) {
+    try {
+      const [res] = await db.executeSql(q);
+      if (res.rows.length) {
+        row = res.rows.item(0);
+        break;
+      }
+    } catch (e) {
+      lastErr = e;
+      continue;
+    }
+  }
+
+  if (!row) {
+    await warn('PUZZLE', 'no row from table', { table, error: String(lastErr?.message ?? lastErr ?? 'unknown') });
+    throw new Error(`No puzzle found in table '${table}'`);
+  }
+
+  const toGrid = (s: string): Grid => {
+    const str = (s ?? '').replace(/[^0-9.]/g, '').slice(0, 81).padEnd(81, '0');
+    const g: Grid = [];
+    for (let i = 0; i < 81; i += 9) g.push(str.slice(i, i + 9).split('').map(ch => (ch === '.' || ch === '0' ? 0 : Number(ch))));
+    return g;
+  };
+
+  await log('PUZZLE', 'picked (simple table)', { table, id: row.id ?? null });
+  return {
+    puzzle: toGrid(row.puzzle),
+    solution: row.solution ? toGrid(row.solution) : toGrid(''.padEnd(81, '0')),
+    meta: { id: row.id ?? 0, line: undefined, difficulty: (table as Difficulty) in { easy:1, medium:1, hard:1, expert:1 } ? (table as Difficulty) : 'easy' },
+  };
+}

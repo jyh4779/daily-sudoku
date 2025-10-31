@@ -1,5 +1,3 @@
-android/app/src/main/assets/www/puzzles.db
-
 # macOS
 .DS_Store
 
@@ -86,3 +84,11 @@ temp/
 # Logs
 logs/
 *.log
+
+# Sudoku datasets and outputs
+*.sudoku
+*.solve
+*.db
+# common dataset/output folders (if present)
+Puzzles/
+Solve/
